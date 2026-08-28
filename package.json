@@ -1,0 +1,24 @@
+{
+  "name": "chatify-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aayu91/chatify.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Aayu91/chatify/issues"
+  },
+  "homepage": "https://github.com/Aayu91/chatify#readme",
+  "dependencies": {
+    "build": "^0.1.4"
+  }
+}
