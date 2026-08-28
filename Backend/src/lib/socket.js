@@ -27,7 +27,7 @@ const userSocketMap = {}; // {userId:socketId}
 
 io.on("connection", (socket) => {
   const user = socket.data.user;           // ✅ correct way
-  console.log("A user connected", user?.fullName);  // was printing undefined before
+  console.log("A user connected", socket.user?.fullName);  // was printing undefined before
   
 
 
@@ -39,7 +39,7 @@ io.on("connection", (socket) => {
 
   // with socket.on we listen for events from clients
   socket.on("disconnect", () => {
-    console.log("A user disconnected", socket.user.fullName);
+    console.log("A user disconnected", socket.user?.fullName);
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });

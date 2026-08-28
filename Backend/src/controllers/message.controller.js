@@ -1,5 +1,5 @@
-import User from "../models/user.js";
-import Message from "../models/message.js";
+import User from "../models/User.js";
+import Message from "../models/Message.js";
 import cloudinary from "../lib/cloudinary.js";
 import { io, getReceiverSocketId } from "../lib/socket.js";
 
@@ -21,7 +21,7 @@ export const getAllContacts = async (req, res) => {
 
 export const getMessagesByUserId = async(req, res) => {
     try {
-        const myId = req.user.id;
+        const myId = req.user._id;
         const {id:userToChatId}=req.params;
         const messages=await Message.find({
             $or:[
@@ -47,7 +47,7 @@ export const getMessagesByUserId = async(req, res) => {
         if (!text && !image) {
       return res.status(400).json({ message: "Text or image is required." });
     }
-    if (senderId.equals(receiverId)) {
+    if (senderId.toString()===receiverId.toString()) {
       return res.status(400).json({ message: "Cannot send messages to yourself." });
     }
     const receiverExists = await User.exists({ _id: receiverId });
