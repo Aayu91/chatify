@@ -7,7 +7,7 @@ import { Link } from 'react-router';
 
 
 function SignUpPage() {
-     const [formData, setFormData] = useState({ fullname: "", email: "", password: "" });
+     const [formData, setFormData] = useState({ fullName: "", email: "", password: "" });
   const { signup, isSigningUp } = useAuthStore();
 
   const handleSubmit = (e) => {
@@ -35,8 +35,8 @@ function SignUpPage() {
                                 <input
                                     type="text"
                                     placeholder="Aayush Chauhan"
-                                    value={formData.fullname}
-                                    onChange={(e) => setFormData({ ...formData, fullname: e.target.value })}
+                                    value={formData.fullName}
+                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                                     className="input"
                                 />
                             </div>
