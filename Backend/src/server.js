@@ -22,10 +22,11 @@ app.use("/api/auth",authRoutes);
 app.use("/api/messages",messageRoutes);
 
 if (ENV.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, '../Frontend/vite-project/dist')));
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../Frontend/vite-project/dist/index.html'));
-    });
+    // ✅ Correct (No ../)
+app.use(express.static(path.join(__dirname, 'Frontend/vite-project/dist')));
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'Frontend/vite-project/dist/index.html'));
+});
 }
 
 
