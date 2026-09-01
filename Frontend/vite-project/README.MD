@@ -1,6 +1,6 @@
 <h1 align="center">✨ Full-Stack Chat App with Auth & Emails ✨</h1>
 
-![Demo App](/frontend/vite-project/public/screenshot-for-readme.png)
+![Demo App](/Frontend/vite-project/public/screenshot-for-readme.png)
 
 Highlights:
 
