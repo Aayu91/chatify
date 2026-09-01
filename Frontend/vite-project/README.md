@@ -1,16 +1,65 @@
-# React + Vite
+<h1 align="center">✨ Full-Stack Chat App with Auth & Emails ✨</h1>
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+![Demo App](/frontend/public/screenshot-for-readme.png)
 
-Currently, two official plugins are available:
+Highlights:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 🔐 Custom JWT Authentication (no 3rd-party auth)
+- ⚡ Real-time Messaging via Socket.io
+- 🟢 Online/Offline Presence Indicators
+- 🔔 Notification & Typing Sounds (with toggle)
+- 📨 Welcome Emails on Signup (Resend)
+- 🗂️ Image Uploads (Cloudinary)
+- 🧰 REST API with Node.js & Express
+- 🧱 MongoDB for Data Persistence
+- 🚦 API Rate-Limiting powered by Arcjet
+- 🎨 Beautiful UI with React, Tailwind CSS & DaisyUI
+- 🧠 Zustand for State Management
+- 🧑‍💻 Git & GitHub Workflow (branches, PRs, merges)
+- 🚀 Easy Deployment (free-tier friendly with Sevalla)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🧪 .env Setup
 
-## Expanding the Oxlint configuration
+### Backend (`/backend`)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```bash
+PORT=3000
+MONGO_URI=your_mongo_uri_here
+
+NODE_ENV=development
+
+JWT_SECRET=your_jwt_secret
+
+RESEND_API_KEY=your_resend_api_key
+EMAIL_FROM=your_email_from_address
+EMAIL_FROM_NAME=your_email_from_name
+
+CLIENT_URL=http://localhost:5173
+
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+ARCJET_KEY=your_arcjet_key
+ARCJET_ENV=development
+```
+
+---
+
+## 🔧 Run the Backend
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+## 💻 Run the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
