@@ -20,7 +20,23 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    // Add inside userSchema:
+friends: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
   },
+],
+friendRequests: [
+  {
+    from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    status: { type: String, enum: ["pending", "accepted", "rejected"], default: "pending" },
+    createdAt: { type: Date, default: Date.now },
+  },
+],
+  },
+  
   { timestamps: true } // createdAt & updatedAt
 );
 

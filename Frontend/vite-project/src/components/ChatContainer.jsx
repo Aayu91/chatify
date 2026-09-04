@@ -12,69 +12,114 @@ function ChatContainer() {
     getMessagesByUserId,
     messages,
     isMessagesLoading,
-    subscribeToMessages,
-    unsubscribeFromMessages,
   } = useChatStore();
   const { authUser } = useAuthStore();
-  const messageEndRef = useRef(null);
+  
+  // Ref to the actual scrollable messages container
+  const scrollContainerRef = useRef(null);
 
+  // Fetch messages when selected user changes
   useEffect(() => {
-    getMessagesByUserId(selectedUser._id);
-    subscribeToMessages();
-
-    // clean up
-    return () => unsubscribeFromMessages();
-  }, [selectedUser, getMessagesByUserId, subscribeToMessages, unsubscribeFromMessages]);
-
-  useEffect(() => {
-    if (messageEndRef.current) {
-      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (selectedUser?._id) {
+      getMessagesByUserId(selectedUser._id);
     }
+  }, [selectedUser, getMessagesByUserId]);
+
+  // Guaranteed Auto-Scroll on new messages or image render
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      }
+    };
+
+    scrollToBottom();
+    // Second pass after 60ms to account for image renders
+    const timeout = setTimeout(scrollToBottom, 60);
+    return () => clearTimeout(timeout);
   }, [messages]);
 
+  if (isMessagesLoading) {
+    return (
+      <div className="flex-1 flex flex-col overflow-auto">
+        <ChatHeader />
+        <MessagesLoadingSkeleton />
+        <MessageInput />
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       <ChatHeader />
-      <div className="flex-1 px-6 overflow-y-auto py-8">
-        {messages.length > 0 && !isMessagesLoading ? (
-          <div className="max-w-3xl mx-auto space-y-6">
-            {messages.map((msg) => (
+
+      {/* Attach ref to this overflow-y-auto container */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+      >
+        {messages.length === 0 ? (
+          <NoChatHistoryPlaceholder name={selectedUser.fullName} />
+        ) : (
+          messages.map((message) => {
+            const isMe = message.senderId === authUser._id;
+            return (
               <div
-                key={msg._id}
-                className={`chat ${msg.senderId === authUser._id ? "chat-end" : "chat-start"}`}
+                key={message._id}
+                className={`chat ${isMe ? "chat-end" : "chat-start"}`}
               >
+                <div className="chat-image avatar">
+                  <div className="size-8 rounded-full">
+                    <img
+                      src={
+                        isMe
+                          ? authUser.profilePic || "/avatar.png"
+                          : selectedUser.profilePic || "/avatar.png"
+                      }
+                      alt="avatar"
+                    />
+                  </div>
+                </div>
+
                 <div
-                  className={`chat-bubble relative ${
-                    msg.senderId === authUser._id
+                  className={`chat-bubble flex flex-col gap-1 text-sm ${
+                    isMe
                       ? "bg-cyan-600 text-white"
                       : "bg-slate-800 text-slate-200"
                   }`}
                 >
-                  {msg.image && (
-                    <img src={msg.image} alt="Shared" className="rounded-lg h-48 object-cover" />
+                  {message.image && (
+                    <img
+                      src={message.image}
+                      alt="attachment"
+                      className="rounded-lg max-h-60 object-cover my-1"
+                      onLoad={() => {
+                        if (scrollContainerRef.current) {
+                          scrollContainerRef.current.scrollTop =
+                            scrollContainerRef.current.scrollHeight;
+                        }
+                      }}
+                    />
                   )}
-                  {msg.text && <p className="mt-2">{msg.text}</p>}
-                  <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
-                    {new Date(msg.createdAt).toLocaleTimeString(undefined, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
+                  {message.text && <p>{message.text}</p>}
+                </div>
+
+                <div className="chat-footer opacity-50 text-[10px] mt-1">
+                  {message.createdAt
+                    ? new Date(message.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : ""}
                 </div>
               </div>
-            ))}
-            {/* 👇 scroll target */}
-            <div ref={messageEndRef} />
-          </div>
-        ) : isMessagesLoading ? (
-          <MessagesLoadingSkeleton />
-        ) : (
-          <NoChatHistoryPlaceholder name={selectedUser.fullName} />
+            );
+          })
         )}
       </div>
 
       <MessageInput />
-    </>
+    </div>
   );
 }
 

@@ -19,23 +19,29 @@ export const getAllContacts = async (req, res) => {
     }
 };
 
-export const getMessagesByUserId = async(req, res) => {
-    try {
-        const myId = req.user._id;
-        const {id:userToChatId}=req.params;
-        const messages=await Message.find({
-            $or:[
-                {senderId:myId,receiverId:userToChatId},
-                {senderId:userToChatId,receiverId:myId},
-            ],
-            
-        });
+export const getMessagesByUserId = async (req, res) => {
+  try {
+    const myId = req.user._id;
+    const { id: userToChatId } = req.params;
 
-        res.status(200).json(messages);
-    } catch (error) {
-        console.log("Error in getMessageById:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
+    // Mark all unread messages from this sender as read
+    await Message.updateMany(
+      { senderId: userToChatId, receiverId: myId, isRead: false },
+      { $set: { isRead: true } }
+    );
+
+    const messages = await Message.find({
+      $or: [
+        { senderId: myId, receiverId: userToChatId },
+        { senderId: userToChatId, receiverId: myId },
+      ],
+    }).sort({ createdAt: 1 }); // Sort messages in ascending order by creation time
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.log("Error in getMessageById:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
 
  export const sendMessage = async(req, res) => {
@@ -53,6 +59,16 @@ export const getMessagesByUserId = async(req, res) => {
     const receiverExists = await User.exists({ _id: receiverId });
     if (!receiverExists) {
       return res.status(404).json({ message: "Receiver not found." });
+    }
+     // PRIVACY SHIELD: Verify users are friends before sending messages
+    const sender = await User.findById(senderId);
+    const isFriend = sender?.friends?.some(
+      (friendId) => friendId.toString() === receiverId.toString()
+    );
+    if (!isFriend) {
+      return res.status(403).json({
+        message: "You must be friends to send messages to this user.",
+      });
     }
         
         let imageUrl;
@@ -104,6 +120,19 @@ export const getChatPartners = async(req, res) => {
         ];
 
         const chatPartners=await User.find({_id:{$in:chatPartnerIds}}).select("-password");
+        const partnersWithUnread = await Promise.all(
+      chatPartners.map(async (partner) => {
+        const unreadCount = await Message.countDocuments({
+          senderId: partner._id,
+          receiverId: loggedInUserId,
+          isRead: false,
+        });
+        return {
+          ...partner.toObject(),
+          unreadCount,
+        };
+      })
+    );
         res.status(200).json(chatPartners);
         
     } catch (error) {
@@ -111,3 +140,4 @@ export const getChatPartners = async(req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+

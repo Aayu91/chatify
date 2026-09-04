@@ -43,6 +43,41 @@ io.on("connection", (socket) => {
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
+
+
+  // --- WebRTC Signaling Events ---
+socket.on("call:user", ({ userToCall, signalData, callType, callerName, callerAvatar }) => {
+  const receiverSocketId = getReceiverSocketId(userToCall);
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("call:incoming", {
+      from: socket.userId,
+      fromSocketId: socket.id,
+      signalData,
+      callType, // 'audio' | 'video'
+      callerName,
+      callerAvatar,
+    });
+  } else {
+    socket.emit("call:unavailable");
+  }
+});
+
+socket.on("call:accept", ({ toSocketId, signalData }) => {
+  io.to(toSocketId).emit("call:accepted", { signalData, fromSocketId: socket.id });
+});
+
+socket.on("call:ice-candidate", ({ toSocketId, candidate }) => {
+  io.to(toSocketId).emit("call:ice-candidate", { candidate });
+});
+
+socket.on("call:reject", ({ toSocketId }) => {
+  io.to(toSocketId).emit("call:rejected");
+});
+
+socket.on("call:end", ({ toSocketId }) => {
+  io.to(toSocketId).emit("call:ended");
+});
+
 });
 
 export { io, app, server };

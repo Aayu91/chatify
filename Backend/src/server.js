@@ -8,6 +8,9 @@ import { ENV } from './lib/env.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import {app,server} from './lib/socket.js';
+import friendRoutes from "./routes/friend.route.js";
+
+
 
 
 const __dirname = path.resolve();
@@ -20,6 +23,7 @@ app.use(cookieParser());
 
 app.use("/api/auth",authRoutes);
 app.use("/api/messages",messageRoutes);
+app.use("/api/friends", friendRoutes);
 
 if (ENV.NODE_ENV === 'production') {
     // ✅ Correct (No ../)
