@@ -3,14 +3,17 @@ import { useAuthStore } from "./useAuthStore";
 
 const ICE_SERVERS = {
   iceServers: [
-    { urls: import.meta.env.VITE_STUN_SERVER || "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
   ],
 };
 
+let queuedCandidates = [];
+let pendingRemoteCandidates = [];
+
 export const useCallStore = create((set, get) => ({
   callStatus: "idle", // 'idle' | 'calling' | 'incoming' | 'connected'
-  callType: "video", // 'audio' | 'video'
+  callType: "video",
   peerSocketId: null,
   callerData: null,
   localStream: null,
@@ -31,9 +34,10 @@ export const useCallStore = create((set, get) => ({
     socket.off("call:unavailable");
 
     socket.on("call:incoming", ({ fromSocketId, signalData, callType, callerName, callerAvatar }) => {
+      pendingRemoteCandidates = [];
       set({
         callStatus: "incoming",
-        callType,
+        callType: callType || "video",
         peerSocketId: fromSocketId,
         callerData: { callerName, callerAvatar, signalData },
       });
@@ -42,24 +46,42 @@ export const useCallStore = create((set, get) => ({
     socket.on("call:accepted", async ({ signalData, fromSocketId }) => {
       const pc = get().peerConnection;
       if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(signalData));
-        set({ callStatus: "connected", peerSocketId: fromSocketId });
+        set({ peerSocketId: fromSocketId, callStatus: "connected" });
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(signalData));
+
+          // Flush caller's queued candidates
+          queuedCandidates.forEach((candidate) => {
+            socket.emit("call:ice-candidate", {
+              toSocketId: fromSocketId,
+              candidate,
+            });
+          });
+          queuedCandidates = [];
+        } catch (err) {
+          console.error("Error setting remote description on caller:", err);
+        }
       }
     });
 
     socket.on("call:ice-candidate", async ({ candidate }) => {
       const pc = get().peerConnection;
-      if (pc && candidate) {
+      if (!candidate) return;
+
+      if (pc && pc.remoteDescription) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (err) {
-          console.error("Failed adding ICE candidate", err);
+          console.error("Failed adding ICE candidate:", err);
         }
+      } else {
+        // Queue candidates until peer connection is initialized and remote description is set
+        pendingRemoteCandidates.push(candidate);
       }
     });
 
     socket.on("call:rejected", () => {
-      alert("Call rejected");
+      alert("Call declined");
       get().cleanupCall();
     });
 
@@ -78,26 +100,47 @@ export const useCallStore = create((set, get) => ({
     const authUser = useAuthStore.getState().authUser;
     if (!socket) return;
 
+    queuedCandidates = [];
+    pendingRemoteCandidates = [];
+
+    let stream = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: callType === "video",
         audio: true,
       });
+    } catch (err) {
+      console.warn("Could not get requested media, trying audio only:", err);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+      } catch (audioErr) {
+        alert("Microphone/Camera permission denied or device busy.");
+        return get().cleanupCall();
+      }
+    }
 
+    try {
       const pc = new RTCPeerConnection(ICE_SERVERS);
 
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
-        set({ remoteStream: event.streams[0] });
+        if (event.streams && event.streams[0]) {
+          set({ remoteStream: event.streams[0] });
+        }
       };
 
       pc.onicecandidate = (event) => {
-        if (event.candidate && get().peerSocketId) {
-          socket.emit("call:ice-candidate", {
-            toSocketId: get().peerSocketId,
-            candidate: event.candidate,
-          });
+        if (event.candidate) {
+          const peerId = get().peerSocketId;
+          if (peerId) {
+            socket.emit("call:ice-candidate", {
+              toSocketId: peerId,
+              candidate: event.candidate,
+            });
+          } else {
+            queuedCandidates.push(event.candidate);
+          }
         }
       };
 
@@ -119,8 +162,7 @@ export const useCallStore = create((set, get) => ({
         callerAvatar: authUser.profilePic,
       });
     } catch (err) {
-      console.error("Camera/mic permission error:", err);
-      alert("Please allow camera and microphone access");
+      console.error("Call initialization error:", err);
       get().cleanupCall();
     }
   },
@@ -130,22 +172,39 @@ export const useCallStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (!callerData || !socket) return;
 
+    // Transition UI to connected immediately so screen never disappears
+    set({ callStatus: "connected" });
+
+    let stream = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: callType === "video",
         audio: true,
       });
+    } catch (err) {
+      console.warn("Camera occupied on same device, falling back to audio:", err);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+      } catch (audioErr) {
+        console.error("Audio fallback failed:", audioErr);
+      }
+    }
 
+    try {
       const pc = new RTCPeerConnection(ICE_SERVERS);
 
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      if (stream) {
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      }
 
       pc.ontrack = (event) => {
-        set({ remoteStream: event.streams[0] });
+        if (event.streams && event.streams[0]) {
+          set({ remoteStream: event.streams[0] });
+        }
       };
 
       pc.onicecandidate = (event) => {
-        if (event.candidate) {
+        if (event.candidate && peerSocketId) {
           socket.emit("call:ice-candidate", {
             toSocketId: peerSocketId,
             candidate: event.candidate,
@@ -160,16 +219,22 @@ export const useCallStore = create((set, get) => ({
       set({
         localStream: stream,
         peerConnection: pc,
-        callStatus: "connected",
       });
 
       socket.emit("call:accept", {
         toSocketId: peerSocketId,
         signalData: answer,
       });
+
+      // Process any queued incoming ICE candidates
+      pendingRemoteCandidates.forEach(async (candidate) => {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {}
+      });
+      pendingRemoteCandidates = [];
     } catch (err) {
-      console.error("Error answering call:", err);
-      get().cleanupCall();
+      console.error("Error establishing answer connection:", err);
     }
   },
 
@@ -194,7 +259,9 @@ export const useCallStore = create((set, get) => ({
   toggleAudio: () => {
     const { localStream, isAudioMuted } = get();
     if (localStream) {
-      localStream.getAudioTracks().forEach((t) => (t.enabled = isAudioMuted));
+      localStream.getAudioTracks().forEach((track) => {
+        track.enabled = isAudioMuted;
+      });
       set({ isAudioMuted: !isAudioMuted });
     }
   },
@@ -202,7 +269,9 @@ export const useCallStore = create((set, get) => ({
   toggleVideo: () => {
     const { localStream, isVideoPaused } = get();
     if (localStream) {
-      localStream.getVideoTracks().forEach((t) => (t.enabled = isVideoPaused));
+      localStream.getVideoTracks().forEach((track) => {
+        track.enabled = isVideoPaused;
+      });
       set({ isVideoPaused: !isVideoPaused });
     }
   },
@@ -210,11 +279,13 @@ export const useCallStore = create((set, get) => ({
   cleanupCall: () => {
     const { localStream, peerConnection } = get();
     if (localStream) {
-      localStream.getTracks().forEach((t) => t.stop());
+      localStream.getTracks().forEach((track) => track.stop());
     }
     if (peerConnection) {
       peerConnection.close();
     }
+    queuedCandidates = [];
+    pendingRemoteCandidates = [];
     set({
       callStatus: "idle",
       peerSocketId: null,
